@@ -1,0 +1,74 @@
+services:
+  neo4j:
+    image: quay.io/lib/neo4j:community-bullseye
+    hostname: neo4j
+    container_name: neo4j_commute
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - data-commute:/data
+      - ./import_commute:/import:Z
+    environment:
+      - NEO4J_AUTH=neo4j/test1234
+      - NEO4J_server_default__advertised__address=localhost
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=512m
+
+  # Second Graph Container
+  neo4j-causal:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_adkg_causal
+    ports:
+      - "7575:7474"   # Access via http://localhost:7474
+      - "7787:7687"   # Bolt connection
+    volumes:
+      - data-causal:/data
+      - ./import_causal:/import:Z
+    environment:
+      - NEO4J_AUTH=neo4j/test1234
+      - NEO4J_server_default__advertised__address=localhost
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=512m
+
+  # Third Graph Container
+  neo4j-nonad:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_nonad_kg
+    ports:
+      - "7676:7474"   # Access via http://localhost:7676 (Maps host 7676 to container 7474)
+      - "7887:7687"   # Bolt connection (Maps host 7887 to container 7887)
+    volumes:
+      - data-nonad:/data
+      - ./import_nonad:/import:Z
+    environment:
+      - NEO4J_AUTH=neo4j/test1234
+      - NEO4J_server_default__advertised__address=localhost
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=512m
+  
+  # Fourth Graph Container
+  neo4j-healthy:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_healthy
+    ports:
+      - "7878:7474"   # Access via http://localhost:7676 (Maps host 7676 to container 7474)
+      - "7987:7687"   # Bolt connection (Maps host 7887 to container 7887)
+    volumes:
+      - data-healthy:/data
+      - ./import_healthy:/import:Z
+    environment:
+      - NEO4J_AUTH=neo4j/test1234
+      - NEO4J_server_default__advertised__address=localhost
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=512m
+
+volumes:
+  data-commute:
+  data-causal:
+  data-nonad:
+  data-healthy:
+
+networks:
+  default:
+    name: KGs

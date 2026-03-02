@@ -1,3 +1,0 @@
-
-Obtaining Predicting Rules
-==========================

@@ -1,3 +1,23 @@
+PyClause/data/wnrr
+neo4j_containers/data
+neo4j_containers/imports
+Anyburl/data
+Anyburl/results
+Anyburl/AnyBURL-23-1x.jar
+Anyburl/config-learn.properties
+
+# Ignore Neo4j data and logs
+neo4j_containers/data/
+neo4j_containers/logs/
+neo4j_containers/transactions/
+neo4j_containers/import/
+**/neostore.transaction.db*
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+.venv/
+
 # Using https://github.com/github/gitignore/blob/master/Python.gitignore
 
 .vscode/
@@ -492,3 +512,4 @@ neo4j_containers/data/neo4j_kg4/transactions/neo4j/checkpoint.0
 neo4j_containers/data/neo4j_kg4/transactions/neo4j/neostore.transaction.db.0
 neo4j_containers/data/neo4j_kg4/transactions/system/checkpoint.0
 neo4j_containers/data/neo4j_kg4/transactions/system/neostore.transaction.db.0
+PyClause/clause/bin/AnyBURL-23-1.jar

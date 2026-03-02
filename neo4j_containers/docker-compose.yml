@@ -1,0 +1,49 @@
+services:
+
+  neo4j-kg1:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_commute
+    ports:
+      - "7474:7474"   # Browser
+      - "7687:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/test1234
+    volumes:
+      - ./data/neo4j_kg1:/data
+      - ./imports/import_commute:/var/lib/neo4j/import
+
+  neo4j-kg2:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_healthy
+    ports:
+      - "7475:7474"   # Browser (different host port!)
+      - "7688:7687"   # Bolt (different host port!)
+    environment:
+      - NEO4J_AUTH=neo4j/test1235
+    volumes:
+      - ./data/neo4j_kg2:/data
+      - ./imports/import_healthy:/var/lib/neo4j/import
+  
+  neo4j-kg3:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_causal
+    ports:
+      - "7476:7474"   # Browser
+      - "7689:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/test1236
+    volumes:
+      - ./data/neo4j_kg3:/data
+      - ./imports/import_causal:/var/lib/neo4j/import
+
+  neo4j-kg4:
+    image: quay.io/lib/neo4j:community-bullseye
+    container_name: neo4j_nonad
+    ports:
+      - "7477:7474"   # Browser (different host port!)
+      - "7690:7687"   # Bolt (different host port!)
+    environment:
+      - NEO4J_AUTH=neo4j/test1237
+    volumes:
+      - ./data/neo4j_kg4:/data
+      - ./imports/import_nonad:/var/lib/neo4j/import
