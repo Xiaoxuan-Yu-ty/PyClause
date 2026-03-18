@@ -1,4 +1,6 @@
 # CMPA Algorithm - Cyclic Graph Compatible
+import ast
+
 import pandas as pd
 import networkx as nx
 from neo4j import GraphDatabase
@@ -128,3 +130,157 @@ def run_cmpa(data, graph,tol=1e-6, damping=0.85):
         for node in graph.nodes
     ]
     return pd.DataFrame(result_list)
+
+def extract_subgraphs_from_neo4j(driver, query=None, ad=False):
+    if not query:
+        query = """
+        MATCH p = (s)-[:increases|decreases*..4]-(o)
+        WHERE ALL(n in nodes(p) WHERE n:Protein OR n:Gene)
+        UNWIND nodes(p) AS n
+        UNWIND relationships(p) AS r
+        WITH collect(DISTINCT n) AS nodes, collect(DISTINCT r) AS rels
+        RETURN nodes, rels
+        """
+    def query_neo4j(tx):
+        result = tx.run(query)
+        return result.single()
+    with driver.session() as session:
+        record = session.execute_read(query_neo4j)
+    
+    # Extract nodes with their properties
+    if not ad:
+        nodes = [{'name':dict(n)['bel'],"properties": dict(n)} for n in record["nodes"]]
+        # Extract relationships with their properties
+        edges = [{
+            "start": dict(r.start_node)['bel'], 
+            "end": dict(r.end_node)['bel'], 
+            "type": r.type, 
+            "properties": dict(r)
+        } for r in record["rels"]]
+    else:
+        nodes = [{'name':dict(n)['id'],"properties": dict(n)} for n in record["nodes"]]
+        # Extract relationships with their properties
+        edges = [{
+            "start": dict(r.start_node)['id'], 
+            "end": dict(r.end_node)['id'], 
+            "type": r.type, 
+            "properties": dict(r)
+        } for r in record["rels"]]
+    
+    return {"nodes": nodes, "edges": edges}
+
+
+def convert_graphdict_to_nx(graph_dict, ad=False):
+    
+    # can serve as edge_weight
+    confidence_map = {'Very High':1, 'High': 0.8, 'Medium': 0.6, 'Low':0.3, 'Wrong':0.0}
+      
+    G = nx.MultiDiGraph()
+    
+    # add nodes to G
+    for node in graph_dict['nodes']:
+        #print(node)
+        id = node.get('name','')
+        label = node.get('properties',{}).get('type',"")
+        #label = "".join(word.strip().capitalize() for word in label.split('_'))
+        #label=label.capitalize()
+        #print(label)
+        if label.lower() == "protein":
+            protein = node.get('properties',{}).get('name',"")
+            protein = protein.split('_')[0]
+        else:
+            protein = ""
+        properties = node.get('properties')
+        #properties.pop('label', None)
+        G.add_node(id, labels=label, protein=protein, properties=properties)
+    print(f"Added {len(G.nodes)} nodes to subGraph")
+        
+    # add edges
+    for edge in graph_dict['edges']:
+        #print(edge)
+        src = edge['start']
+        dst = edge['end']
+        rel = edge['type']
+        props = edge.get('properties', {}).copy()
+        if ad:
+            confidence = edge.get('properties',{}).get('confidence', 0.5)
+            #print(confidence)
+            # Remove 'confidence' from props so it's not passed twice
+            props.pop('confidence', None)
+            if isinstance(confidence,str):
+                conf = ast.literal_eval(confidence)[0]
+                confidence = confidence_map[conf]
+            elif isinstance(confidence, list):
+                conf = ast.literal_eval(confidence[0])[0]
+                if isinstance(conf, str):
+                    confidence = confidence_map[conf]
+            else:
+                confidence = float(confidence)
+            #print(confidence)
+        else:
+            confidence = 1.0 if props.get('pmid',0) != 0 else 0.0 
+        G.add_edge(src, dst, type=rel, weight=confidence, **props)
+        #break
+    print(f"Added {len(G.edges)} edges to subGraph")
+
+    return G
+
+
+def extract_bp_subgraphs_dedup(G, hop=2, min_size=5):
+    bp_nodes = [n for n, d in G.nodes(data=True) if d.get("labels") == "BiologicalProcess"]
+    
+    subgraphs = {}
+    protein_coverage = {}  # track which BPs cover each protein
+    
+    for bp in bp_nodes:
+        neighbors = nx.single_source_shortest_path_length(G, bp, cutoff=hop)
+        sg = G.subgraph(list(neighbors.keys())).copy()
+        
+        if sg.number_of_nodes() < min_size:
+            continue
+        
+        subgraphs[bp] = sg
+        
+        # Track protein membership
+        for node in sg.nodes():
+            if G.nodes[node].get("labels") == "Protein":
+                protein_coverage.setdefault(node, []).append(bp)
+    # Report bp-subgrphs stats
+    subgraph_num_nodes = [subg.number_of_nodes() for subg in subgraphs.values()]
+    print(f"Number of subgraphs: {len(subgraphs)}")
+    print(f"Subgraph node count: min={min(subgraph_num_nodes)}, max={max(subgraph_num_nodes)}")
+    # Report overlap stats
+    overlap = {p: bps for p, bps in protein_coverage.items() if len(bps) > 1}
+    print(f"\nProteins appearing in multiple BP subgraphs: {len(overlap)}")
+    print(f"Max overlap: {max(len(v) for v in protein_coverage.values())} BPs")
+    
+    return subgraphs, protein_coverage
+
+def subgraph_to_rules(
+                    G_subgraphs:dict,
+                    output_dir:str,
+                    expression_path:str="../Anyburl/data/adni_gene_cleaned.csv",
+                    ):
+    # 1. Compute CMPA for all subgraphs
+    exp_df = pd.read_csv(expression_path, index_col=0).T
+    df_patient_cmpa = pd.DataFrame(index=exp_df.index, columns = list(G_subgraphs.keys()))
+    
+    for i in tqdm(range(len(exp_df)), desc="Computing Subgraph CMPA Score For Patients"):
+        patient_data = exp_df.iloc[i].to_dict()
+
+        df_subgraphs = {}
+        subgraph_scores = []
+        for subg_name, subG in G_subgraphs.items():
+            #plot_subgraph(subG, True, True, subg_name)
+            print('='*60)
+            print(f"Run CMPA on {subg_name}")
+            df_subG = run_cmpa(patient_data, subG)
+            df_subgraphs[subg_name] = df_subG
+            
+            subgraph_scores.append(df_subG['score'].sum())
+        df_patient_cmpa.iloc[i] = subgraph_scores
+    
+    # save features file
+    #save_path = os.path.join(output_dir, 'ad_subgraph_features.csv')
+    df_patient_cmpa.to_csv(output_dir)
+    return df_patient_cmpa
