@@ -514,3 +514,4 @@ neo4j_containers/data/neo4j_kg4/transactions/system/checkpoint.0
 neo4j_containers/data/neo4j_kg4/transactions/system/neostore.transaction.db.0
 PyClause/clause/bin/AnyBURL-23-1.jar
 Anyburl/data/KG/
+notebooks/healthy_aging_kg.pkl
