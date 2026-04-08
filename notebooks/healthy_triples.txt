@@ -1,0 +1,17 @@
+NR1H2 decreases VLDLR
+MYLIP decreases LDLR
+MYLIP decreases VLDLR
+MYLIP decreases LRP8
+PPARA increases LRP2
+MYLIP decreases LDLR
+MYLIP decreases VLDLR
+MYLIP decreases LRP8
+NR1H3 decreases VLDLR
+PPARA increases LRP2
+UCHL1 decreases BACE1
+UCHL1 regulates BACE1
+NR1H2 decreases VLDLR
+LRP1 decreases APOE
+LRP1 regulates APOE
+ABCA1 increases APOE
+CLU increases LRP2
